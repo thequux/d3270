@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::b3270::types::GraphicRendition;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
 #[serde(rename_all="kebab-case")]
@@ -307,8 +308,7 @@ pub struct Change {
     pub bg: Option<Color>,
     #[serde(default, skip_serializing_if="Option::is_none")]
     /// Graphic rendition
-    // TODO: parse comma-separated list of GR strings from https://x3270.miraheze.org/wiki/B3270/Graphic_rendition
-    pub gr: Option<String>,
+    pub gr: Option<GraphicRendition>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
