@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+// {"run":{"actions":[{"action":"Connect","args":["10.24.74.37:3270"]}]}}
+
 // Operations
 #[derive(Serialize, Deserialize, Debug, Hash, Eq, PartialEq, Clone)]
 #[serde(rename_all="kebab-case")]

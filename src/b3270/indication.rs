@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::b3270::types::GraphicRendition;
+use crate::b3270::types::{Color, GraphicRendition};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
 #[serde(rename_all="kebab-case")]
@@ -69,7 +69,7 @@ pub enum ConnectionState {
     ConnectedETn3270e,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all="kebab-case")]
 pub struct Erase {
     #[serde(default, skip_serializing_if="Option::is_none")]
@@ -147,18 +147,54 @@ pub enum OiaField {
         value: bool,
     },
     /// Screen trace count
-    Screentrace {
+    ScreenTrace {
         value: String,
     },
     /// Host command timer (minutes:seconds)
     Script {
         value: String,
     },
+    Timing {
+        #[serde(default, skip_serializing_if="Option::is_none")]
+        value: Option<String>,
+    },
     Typeahead {
         value: bool,
-    }
+    },
 }
 
+#[derive(Copy, Clone, Debug, Eq, Ord, PartialOrd, PartialEq, Hash)]
+pub enum OiaFieldName {
+    Compose,
+    Insert,
+    Lock,
+    Lu,
+    NotUndera,
+    PrinterSession,
+    ReverseInput,
+    ScreenTrace,
+    Script,
+    Timing,
+    Typeahead,
+}
+
+impl OiaField {
+    pub fn field_name(&self) -> OiaFieldName {
+        match self {
+            OiaField::Compose {..} => OiaFieldName::Compose,
+            OiaField::Insert {..} => OiaFieldName::Insert,
+            OiaField::Lock {..} => OiaFieldName::Lock,
+            OiaField::Lu {..} => OiaFieldName::Lu,
+            OiaField::NotUndera {..} => OiaFieldName::NotUndera,
+            OiaField::PrinterSession {..} => OiaFieldName::PrinterSession,
+            OiaField::ReverseInput {..} => OiaFieldName::ReverseInput,
+            OiaField::ScreenTrace {..} => OiaFieldName::ScreenTrace,
+            OiaField::Script {..} => OiaFieldName::Script,
+            OiaField::Timing {..} => OiaFieldName::Timing,
+            OiaField::Typeahead {..} => OiaFieldName::Typeahead,
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Proxy {
     pub name: String,
@@ -211,7 +247,7 @@ pub struct ConnectAttempt {
     pub port: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 // TODO: change this to an enum
 pub struct Cursor {
     pub enabled: bool,
@@ -342,27 +378,6 @@ pub struct Scroll {
     pub bg: Option<Color>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
-#[serde(rename="camelCase")]
-pub enum Color {
-    NeutralBlack,
-    Blue,
-    Red,
-    Pink,
-    Green,
-    Turquoise,
-    Yellow,
-    NeutralWhite,
-    Black,
-    DeepBlue,
-    Orange,
-    Purple,
-    PaleGreen,
-    PaleTurquoise,
-    Gray,
-    White,
-}
-
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename="kebab-case")]
 pub struct Stats {
@@ -411,4 +426,14 @@ pub struct UiError {
     pub line: Option<usize>,
     #[serde(default, skip_serializing_if="Option::is_none")]
     pub column: Option<usize>,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    pub fn connection_state_serializes_as_expected() {
+        assert_eq!(serde_json::to_string(&ConnectionState::ConnectedETn3270e).unwrap(),r#""connected-e-tn3270e""#);
+        assert_eq!(serde_json::to_string(&ConnectionState::ConnectedESscp).unwrap(),r#""connected-e-sscp""#);
+    }
 }

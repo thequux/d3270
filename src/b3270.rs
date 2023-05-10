@@ -87,18 +87,22 @@ pub enum InitializeIndication {
     Models(Vec<Model>),
     /// Change in the state of the Operator Information Area
     Oia(Oia),
-    /// List of supported proxies
-    Proxies(Vec<Proxy>),
     /// Set of supported prefixes
     Prefixes{value: String},
+    /// List of supported proxies
+    Proxies(Vec<Proxy>),
     /// Screen dimensions/characteristics changed
     ScreenMode(ScreenMode),
     /// Setting changed
     Setting(Setting),
+    /// Scroll thumb position
+    Thumb(Thumb),
     /// Indicates build-time TLS config
     TlsHello(TlsHello),
     /// TLS state changed
     Tls(Tls),
+    /// Trace file
+    TraceFile(TraceFile),
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

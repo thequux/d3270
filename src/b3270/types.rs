@@ -17,6 +17,7 @@ bitflags! {
         const PRIVATE_USE = 0x080;
         const NO_COPY     = 0x100;
         const WRAP        = 0x200;
+
     }
 }
 
@@ -112,5 +113,116 @@ mod test {
     #[test]
     fn from_str_1() {
         assert_eq!(GraphicRendition::from_str("underline,blink"), Ok(GraphicRendition::BLINK | GraphicRendition::UNDERLINE))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
+#[serde(rename="camelCase")]
+#[repr(u8)]
+pub enum Color {
+    NeutralBlack,
+    Blue,
+    Red,
+    Pink,
+    Green,
+    Turquoise,
+    Yellow,
+    NeutralWhite,
+    Black,
+    DeepBlue,
+    Orange,
+    Purple,
+    PaleGreen,
+    PaleTurquoise,
+    Gray,
+    White,
+}
+
+impl From<Color> for u8 {
+    fn from(value: Color) -> Self {
+        use Color::*;
+        match value {
+            NeutralBlack  => 0,
+            Blue          => 1,
+            Red           => 2,
+            Pink          => 3,
+            Green         => 4,
+            Turquoise     => 5,
+            Yellow        => 6,
+            NeutralWhite  => 7,
+            Black         => 8,
+            DeepBlue      => 9,
+            Orange        => 10,
+            Purple        => 11,
+            PaleGreen     => 12,
+            PaleTurquoise => 13,
+            Gray          => 14,
+            White         => 15,
+        }
+    }
+}
+
+impl From<u8> for Color {
+    fn from(value: u8) -> Self {
+        use Color::*;
+        match value & 0xF {
+             0 => NeutralBlack,
+             1 => Blue,
+             2 => Red,
+             3 => Pink,
+             4 => Green,
+             5 => Turquoise,
+             6 => Yellow,
+             7 => NeutralWhite,
+             8 => Black,
+             9 => DeepBlue,
+            10 => Orange,
+            11 => Purple,
+            12 => PaleGreen,
+            13 => PaleTurquoise,
+            14 => Gray,
+            15 => White,
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub trait PackedAttr {
+    fn c_gr(self) -> GraphicRendition;
+    fn c_fg(self) -> Color;
+    fn c_bg(self) -> Color;
+    fn c_setgr(self, gr: GraphicRendition) -> Self;
+    fn c_setfg(self, fg: Color) -> Self;
+    fn c_setbg(self, bg: Color) -> Self;
+    fn c_pack(fg: Color, bg: Color, gr: GraphicRendition) -> Self;
+}
+
+impl PackedAttr for u32 {
+    fn c_gr(self) -> GraphicRendition {
+        GraphicRendition::from_bits_truncate((self & 0xFFFF) as u16)
+    }
+
+    fn c_fg(self) -> Color {
+        ((self >> 16 & 0xF) as u8).into()
+    }
+
+    fn c_bg(self) -> Color {
+        ((self >> 20 & 0xF) as u8).into()
+    }
+
+    fn c_setgr(self, gr: GraphicRendition) -> Self {
+        self & !0xFFFF | gr.bits() as u32
+    }
+
+    fn c_setfg(self, fg: Color) -> Self {
+        self & !0xF0000 | (u8::from(fg) as u32) << 16
+    }
+
+    fn c_setbg(self, bg: Color) -> Self {
+        self & !0xF0000 | (u8::from(bg) as u32) << 20
+    }
+
+    fn c_pack(fg: Color, bg: Color, gr: GraphicRendition) -> Self {
+        0.c_setfg(fg).c_setbg(bg).c_setgr(gr)
     }
 }
