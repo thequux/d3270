@@ -1,11 +1,10 @@
 use std::ffi::OsString;
+use std::process::Stdio;
 use std::str::FromStr;
-use anyhow::{anyhow, bail};
-use structopt::StructOpt;
-use d3270::tracker::Tracker;
+use anyhow::anyhow;
 
 #[tokio::main]
-fn main() -> anyhow::Result<()> {
+async fn main() -> anyhow::Result<()> {
     let mut subprocess_args = vec![
         OsString::from_str("-json").unwrap(),
     ];
@@ -22,7 +21,7 @@ fn main() -> anyhow::Result<()> {
             }
             "-connect" => {
                 connect_str = args_iter.next()
-                    .ok_or_else(anyhow!("Arg required for -connect"))
+                    .ok_or_else(|| anyhow!("Arg required for -connect"))
                     .and_then(|arg| arg.into_string().map_err(|_| anyhow!("Invalid connect string")))
                     .map(Some)?;
             }
@@ -38,12 +37,19 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let connect_str = connect_str.ok_or_else(||anyhow!("No connect string given"))?;
+    let _connect_str = connect_str.ok_or_else(||anyhow!("No connect string given"))?;
 
+    let subproc = tokio::process::Command::new("b3270")
+        .args(&subprocess_args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    let (_server, _server_req) = connection::B3270::spawn(subproc);
+    // TODO: make connection before starting listeners
 
     Ok(())
 }
 
-pub struct Subproc {
-    tracker: Tracker,
-}
+
+pub mod connection;

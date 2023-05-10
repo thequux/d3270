@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::b3270::indication::{Change, Connection, ConnectionState, CountOrText, Cursor, Erase, Oia, OiaFieldName, Row, Screen, ScreenMode, Scroll, Setting, TerminalName, Thumb, Tls, TraceFile};
+use crate::b3270::indication::{Change, Connection, ConnectionState, CountOrText, Cursor, Erase, Oia, OiaFieldName, Row, RunResult, Screen, ScreenMode, Scroll, Setting, TerminalName, Thumb, Tls, TraceFile};
 use crate::b3270::{Indication, InitializeIndication};
 use crate::b3270::types::{Color, GraphicRendition, PackedAttr};
 
@@ -201,7 +201,13 @@ impl Tracker {
             Indication::UiError(_) => {} // we can assume that this came from the last sent command
             Indication::Passthru(_) => {} // dunno how to handle this one
             Indication::FileTransfer(_) => {}
-            Indication::RunResult(_) => {}
+            Indication::RunResult(RunResult{r_tag, ..}) => {
+                if let Some(dest) = r_tag {
+                    return Disposition::Direct(dest.clone());
+                } else {
+                    return Disposition::Drop;
+                }
+            }
 
         }
         return Disposition::Broadcast
@@ -279,7 +285,7 @@ impl Tracker {
 
 impl Default for Tracker {
     fn default() -> Self {
-        let mut ret = Self {
+        let ret = Self {
             screen: vec![],
             oia: Default::default(),
             screen_mode: ScreenMode {
