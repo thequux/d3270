@@ -1,14 +1,18 @@
-use serde::{Deserialize, Serialize};
-use indication::{CodePage, ConnectAttempt, Connection, Erase, FileTransfer, Hello, Model, Oia, Passthru, Popup, Proxy, RunResult, Screen, ScreenMode, Scroll, Setting, Stats, TerminalName, Thumb, Tls, TlsHello, TraceFile, UiError};
+use indication::{
+    CodePage, ConnectAttempt, Connection, Erase, FileTransfer, Hello, Model, Oia, Passthru, Popup,
+    Proxy, RunResult, Screen, ScreenMode, Scroll, Setting, Stats, TerminalName, Thumb, Tls,
+    TlsHello, TraceFile, UiError,
+};
 use operation::{Fail, Register, Run, Succeed};
+use serde::{Deserialize, Serialize};
 
-pub mod operation;
 pub mod indication;
+pub mod operation;
 pub mod types;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Indication {
-    Bell{}, // TODO: make sure this emits/parses {"bell": {}}
+    Bell {}, // TODO: make sure this emits/parses {"bell": {}}
     /// Indicates that the host connection has changed state.
     Connection(Connection),
     /// A new host connection is being attempted
@@ -30,10 +34,10 @@ pub enum Indication {
         state: bool,
     },
     /// File transfer state change
-    #[serde(rename="ft")]
+    #[serde(rename = "ft")]
     FileTransfer(FileTransfer),
     /// An XTerm escape sequence requested a new icon name
-    Icon{
+    Icon {
         text: String,
     },
     /// The first message sent
@@ -68,13 +72,13 @@ pub enum Indication {
     /// Error in b3270's input
     UiError(UiError),
     /// Xterm escape sequence requested a change to the window title
-    WindowTitle{
+    WindowTitle {
         text: String,
-    }
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum InitializeIndication {
     CodePages(Vec<CodePage>),
     /// Indicates that the host connection has changed state.
@@ -88,7 +92,9 @@ pub enum InitializeIndication {
     /// Change in the state of the Operator Information Area
     Oia(Oia),
     /// Set of supported prefixes
-    Prefixes{value: String},
+    Prefixes {
+        value: String,
+    },
     /// List of supported proxies
     Proxies(Vec<Proxy>),
     /// Screen dimensions/characteristics changed
@@ -106,7 +112,7 @@ pub enum InitializeIndication {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum Operation {
     /// Run an action
     Run(Run),
@@ -117,4 +123,3 @@ pub enum Operation {
     /// Tell b3270 that a passthru action succeeded
     Succeed(Succeed),
 }
-

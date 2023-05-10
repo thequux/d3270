@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use crate::b3270::types::{Color, GraphicRendition};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum ActionCause {
     Command,
     Default,
@@ -22,27 +22,27 @@ pub enum ActionCause {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct CodePage{
+pub struct CodePage {
     /// The canonical name of the code page
     pub name: String,
-    #[serde(default, skip_serializing_if="Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Connection{
+pub struct Connection {
     /// New connection state
     pub state: ConnectionState,
     /// Host name, if connected
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
     /// Source of the connection
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cause: Option<ActionCause>,
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ComposeType {
     Std,
@@ -50,7 +50,7 @@ pub enum ComposeType {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ConnectionState {
     NotConnected,
@@ -65,20 +65,20 @@ pub enum ConnectionState {
     ConnectedUnbound,
     ConnectedENvt,
     ConnectedESscp,
-    #[serde(rename="connected-e-tn3270e")]
+    #[serde(rename = "connected-e-tn3270e")]
     ConnectedETn3270e,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Erase {
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub logical_rows: Option<u8>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub logical_cols: Option<u8>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fg: Option<Color>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bg: Option<Color>,
 }
 
@@ -101,34 +101,36 @@ pub struct Model {
 pub struct Oia {
     #[serde(flatten)]
     pub field: OiaField,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lu: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all="kebab-case", tag="field")]
+#[serde(rename_all = "kebab-case", tag = "field")]
 #[derive(Debug, PartialEq, Clone)]
 pub enum OiaField {
     /// Composite character in progress
-    Compose{
+    Compose {
         value: bool,
-        #[serde(default, skip_serializing_if="Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         char: Option<String>,
-        #[serde(default, skip_serializing_if="Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         type_: Option<ComposeType>,
     },
     /// Insert mode
-    Insert{value: bool},
-    /// Keyboard is locked
-    Lock{
-        #[serde(default, skip_serializing_if="Option::is_none")]
-        value: Option<String>
+    Insert {
+        value: bool,
     },
-    Lu{
+    /// Keyboard is locked
+    Lock {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        value: Option<String>,
+    },
+    Lu {
         /// Host session logical unit name
         value: String,
         /// Printer session LU name
-        #[serde(default, skip_serializing_if="Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         lu: Option<String>,
     },
     /// Communication pending
@@ -139,7 +141,7 @@ pub enum OiaField {
         value: bool,
         /// Printer session LU name
         // TODO: determine if this is sent with this message or with Lu
-        #[serde(default, skip_serializing_if="Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         lu: Option<String>,
     },
     /// Reverse input mode
@@ -155,7 +157,7 @@ pub enum OiaField {
         value: String,
     },
     Timing {
-        #[serde(default, skip_serializing_if="Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         value: Option<String>,
     },
     Typeahead {
@@ -181,17 +183,17 @@ pub enum OiaFieldName {
 impl OiaField {
     pub fn field_name(&self) -> OiaFieldName {
         match self {
-            OiaField::Compose {..} => OiaFieldName::Compose,
-            OiaField::Insert {..} => OiaFieldName::Insert,
-            OiaField::Lock {..} => OiaFieldName::Lock,
-            OiaField::Lu {..} => OiaFieldName::Lu,
-            OiaField::NotUndera {..} => OiaFieldName::NotUndera,
-            OiaField::PrinterSession {..} => OiaFieldName::PrinterSession,
-            OiaField::ReverseInput {..} => OiaFieldName::ReverseInput,
-            OiaField::ScreenTrace {..} => OiaFieldName::ScreenTrace,
-            OiaField::Script {..} => OiaFieldName::Script,
-            OiaField::Timing {..} => OiaFieldName::Timing,
-            OiaField::Typeahead {..} => OiaFieldName::Typeahead,
+            OiaField::Compose { .. } => OiaFieldName::Compose,
+            OiaField::Insert { .. } => OiaFieldName::Insert,
+            OiaField::Lock { .. } => OiaFieldName::Lock,
+            OiaField::Lu { .. } => OiaFieldName::Lu,
+            OiaField::NotUndera { .. } => OiaFieldName::NotUndera,
+            OiaField::PrinterSession { .. } => OiaFieldName::PrinterSession,
+            OiaField::ReverseInput { .. } => OiaFieldName::ReverseInput,
+            OiaField::ScreenTrace { .. } => OiaFieldName::ScreenTrace,
+            OiaField::Script { .. } => OiaFieldName::Script,
+            OiaField::Timing { .. } => OiaFieldName::Timing,
+            OiaField::Typeahead { .. } => OiaFieldName::Typeahead,
         }
     }
 }
@@ -224,24 +226,24 @@ pub struct ScreenMode {
 pub struct TlsHello {
     pub supported: bool,
     pub provider: String, // docs claim this is always set, but I'm not sure.
-    #[serde(default, skip_serializing_if="Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Tls {
     pub secure: bool,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified: Option<bool>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session: Option<String>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host_cert: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename_all="kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct ConnectAttempt {
     pub host_ip: String,
     pub port: String,
@@ -251,9 +253,9 @@ pub struct ConnectAttempt {
 // TODO: change this to an enum
 pub struct Cursor {
     pub enabled: bool,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub row: Option<u8>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub column: Option<u8>,
 }
 
@@ -265,15 +267,15 @@ pub struct FileTransfer {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename_all="lowercase", tag="state")]
+#[serde(rename_all = "lowercase", tag = "state")]
 pub enum FileTransferState {
     Awaiting,
-    Running{
+    Running {
         /// Number of bytes transferred
-        bytes: usize
+        bytes: usize,
     },
     Aborting,
-    Complete{
+    Complete {
         /// Completion message
         text: String,
         /// Transfer succeeded
@@ -282,27 +284,27 @@ pub enum FileTransferState {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename="kebab-case")]
+#[serde(rename = "kebab-case")]
 pub struct Passthru {
     pub p_tag: String,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_r_tag: Option<String>,
     pub action: String,
-    #[serde(default, skip_serializing_if="Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Popup {
-    #[serde(rename="type")]
+    #[serde(rename = "type")]
     pub type_: PopupType,
     pub text: String,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
-#[serde(rename="kebab-case")]
+#[serde(rename = "kebab-case")]
 pub enum PopupType {
     /// Error message from a connection attempt
     ConnectError,
@@ -319,15 +321,14 @@ pub enum PopupType {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename="kebab-case")]
+#[serde(rename = "kebab-case")]
 pub struct Row {
     pub row: u8,
     pub changes: Vec<Change>,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename="kebab-case")]
+#[serde(rename = "kebab-case")]
 pub enum CountOrText {
     Count(usize),
     Text(String),
@@ -338,48 +339,48 @@ pub struct Change {
     pub column: u8,
     #[serde(flatten)]
     pub change: CountOrText,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fg: Option<Color>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bg: Option<Color>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Graphic rendition
     pub gr: Option<GraphicRendition>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Screen {
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<Cursor>,
-    #[serde(default, skip_serializing_if="Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rows: Vec<Row>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename="kebab-case")]
+#[serde(rename = "kebab-case")]
 pub struct RunResult {
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub r_tag: Option<String>,
     pub success: bool,
-    #[serde(default, skip_serializing_if="Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub text: Vec<String>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub abort: Option<bool>,
     /// Execution time in seconds
     pub time: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename="kebab-case")]
+#[serde(rename = "kebab-case")]
 pub struct Scroll {
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fg: Option<Color>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bg: Option<Color>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename="kebab-case")]
+#[serde(rename = "kebab-case")]
 pub struct Stats {
     pub bytes_received: usize,
     pub bytes_sent: usize,
@@ -390,7 +391,7 @@ pub struct Stats {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct TerminalName {
     pub text: String,
-    #[serde(rename="override")]
+    #[serde(rename = "override")]
     pub override_: bool,
 }
 
@@ -410,7 +411,7 @@ pub struct Thumb {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct TraceFile {
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 }
 
@@ -418,13 +419,13 @@ pub struct TraceFile {
 pub struct UiError {
     pub fatal: bool,
     pub text: String,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operation: Option<String>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member: Option<String>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line: Option<usize>,
-    #[serde(default, skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub column: Option<usize>,
 }
 
@@ -433,7 +434,13 @@ mod test {
     use super::*;
     #[test]
     pub fn connection_state_serializes_as_expected() {
-        assert_eq!(serde_json::to_string(&ConnectionState::ConnectedETn3270e).unwrap(),r#""connected-e-tn3270e""#);
-        assert_eq!(serde_json::to_string(&ConnectionState::ConnectedESscp).unwrap(),r#""connected-e-sscp""#);
+        assert_eq!(
+            serde_json::to_string(&ConnectionState::ConnectedETn3270e).unwrap(),
+            r#""connected-e-tn3270e""#
+        );
+        assert_eq!(
+            serde_json::to_string(&ConnectionState::ConnectedESscp).unwrap(),
+            r#""connected-e-sscp""#
+        );
     }
 }

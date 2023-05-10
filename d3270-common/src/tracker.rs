@@ -1,7 +1,10 @@
-use std::collections::HashMap;
-use crate::b3270::indication::{Change, Connection, ConnectionState, CountOrText, Cursor, Erase, Oia, OiaFieldName, Row, RunResult, Screen, ScreenMode, Scroll, Setting, TerminalName, Thumb, Tls, TraceFile};
-use crate::b3270::{Indication, InitializeIndication};
+use crate::b3270::indication::{
+    Change, Connection, ConnectionState, CountOrText, Cursor, Erase, Oia, OiaFieldName, Row,
+    RunResult, Screen, ScreenMode, Scroll, Setting, TerminalName, Thumb, Tls, TraceFile,
+};
 use crate::b3270::types::{Color, GraphicRendition, PackedAttr};
+use crate::b3270::{Indication, InitializeIndication};
+use std::collections::HashMap;
 
 #[derive(Copy, Clone, Debug)]
 struct CharCell {
@@ -48,9 +51,7 @@ impl Tracker {
             | Indication::Icon { .. }
             | Indication::Popup(_)
             | Indication::Stats(_)
-            | Indication::WindowTitle { .. }
-
-            => (),
+            | Indication::WindowTitle { .. } => (),
             Indication::Connection(conn) => {
                 self.connection = conn.clone();
             }
@@ -64,43 +65,47 @@ impl Tracker {
                 let cols = self.erase.logical_cols.unwrap_or(self.screen_mode.cols) as usize;
 
                 self.screen = vec![
-                    vec![CharCell{
-                        attr: u32::c_pack(
-                            erase.fg.unwrap_or(Color::NeutralBlack),
-                            erase.bg.unwrap_or(Color::Blue),
-                            GraphicRendition::empty(),
-                        ),
-                        ch: ' ',
-                    };cols]
-                    ; rows
+                    vec![
+                        CharCell {
+                            attr: u32::c_pack(
+                                erase.fg.unwrap_or(Color::NeutralBlack),
+                                erase.bg.unwrap_or(Color::Blue),
+                                GraphicRendition::empty(),
+                            ),
+                            ch: ' ',
+                        };
+                        cols
+                    ];
+                    rows
                 ]
             }
-            Indication::Formatted { state } => {self.formatted = *state; }
+            Indication::Formatted { state } => {
+                self.formatted = *state;
+            }
 
             Indication::Initialize(init) => {
                 let mut static_init = Vec::with_capacity(init.len());
                 for indicator in init.clone() {
                     match indicator {
-                        InitializeIndication::CodePages(_) |
-                        InitializeIndication::Hello(_) |
-                        InitializeIndication::Models(_) |
-                        InitializeIndication::Prefixes { .. } |
-                        InitializeIndication::Proxies(_) |
-                        InitializeIndication::TlsHello(_) |
-                        InitializeIndication::Tls(_) |
-                        InitializeIndication::TraceFile(_) =>
-                            static_init.push(indicator),
+                        InitializeIndication::CodePages(_)
+                        | InitializeIndication::Hello(_)
+                        | InitializeIndication::Models(_)
+                        | InitializeIndication::Prefixes { .. }
+                        | InitializeIndication::Proxies(_)
+                        | InitializeIndication::TlsHello(_)
+                        | InitializeIndication::Tls(_)
+                        | InitializeIndication::TraceFile(_) => static_init.push(indicator),
 
                         // The rest are passed through to normal processing.
                         InitializeIndication::Thumb(thumb) => {
                             self.handle_indication(&mut Indication::Thumb(thumb));
-                        },
+                        }
                         InitializeIndication::Setting(setting) => {
                             self.handle_indication(&mut Indication::Setting(setting));
                         }
                         InitializeIndication::ScreenMode(mode) => {
                             self.handle_indication(&mut Indication::ScreenMode(mode));
-                        },
+                        }
                         InitializeIndication::Oia(oia) => {
                             self.handle_indication(&mut Indication::Oia(oia));
                         }
@@ -127,21 +132,19 @@ impl Tracker {
                         // update screen contents
                         let cols = self.screen[row_idx].iter_mut().skip(col_idx);
                         match change.change {
-                            CountOrText::Count(n) => {
-                                cols.take(n).for_each(|cell| {
-                                    let mut attr = cell.attr;
-                                    if let Some(fg) = change.fg {
-                                        attr = attr.c_setfg(fg);
-                                    }
-                                    if let Some(bg) = change.bg {
-                                        attr = attr.c_setbg(bg);
-                                    }
-                                    if let Some(gr) = change.gr {
-                                        attr = attr.c_setgr(gr);
-                                    }
-                                    cell.attr = attr;
-                                })
-                            }
+                            CountOrText::Count(n) => cols.take(n).for_each(|cell| {
+                                let mut attr = cell.attr;
+                                if let Some(fg) = change.fg {
+                                    attr = attr.c_setfg(fg);
+                                }
+                                if let Some(bg) = change.bg {
+                                    attr = attr.c_setbg(bg);
+                                }
+                                if let Some(gr) = change.gr {
+                                    attr = attr.c_setgr(gr);
+                                }
+                                cell.attr = attr;
+                            }),
                             CountOrText::Text(ref text) => {
                                 cols.zip(text.chars()).for_each(|(cell, ch)| {
                                     let mut attr = cell.attr;
@@ -164,18 +167,18 @@ impl Tracker {
             }
             Indication::ScreenMode(mode) => {
                 self.screen_mode = *mode;
-                self.handle_indication(&mut Indication::Erase(Erase{
+                self.handle_indication(&mut Indication::Erase(Erase {
                     logical_rows: Some(self.screen_mode.rows),
                     logical_cols: Some(self.screen_mode.cols),
                     fg: None,
                     bg: None,
                 }));
             }
-            Indication::Scroll(Scroll{ fg, bg }) => {
+            Indication::Scroll(Scroll { fg, bg }) => {
                 let fg = fg.or(self.erase.fg).unwrap_or(Color::Blue);
                 let bg = bg.or(self.erase.bg).unwrap_or(Color::NeutralBlack);
                 let mut row = self.screen.remove(0);
-                row.fill(CharCell{
+                row.fill(CharCell {
                     attr: u32::c_pack(fg, bg, GraphicRendition::empty()),
                     ch: ' ',
                 });
@@ -190,7 +193,7 @@ impl Tracker {
             Indication::Thumb(thumb) => {
                 self.thumb = thumb.clone();
             }
-            Indication::TraceFile(TraceFile{name}) => {
+            Indication::TraceFile(TraceFile { name }) => {
                 self.trace_file = name.clone();
             }
             Indication::Tls(tls) => {
@@ -201,16 +204,15 @@ impl Tracker {
             Indication::UiError(_) => {} // we can assume that this came from the last sent command
             Indication::Passthru(_) => {} // dunno how to handle this one
             Indication::FileTransfer(_) => {}
-            Indication::RunResult(RunResult{r_tag, ..}) => {
+            Indication::RunResult(RunResult { r_tag, .. }) => {
                 if let Some(dest) = r_tag {
                     return Disposition::Direct(dest.clone());
                 } else {
                     return Disposition::Drop;
                 }
             }
-
         }
-        return Disposition::Broadcast
+        return Disposition::Broadcast;
     }
 
     pub fn get_init_indication(&self) -> Vec<Indication> {
@@ -219,12 +221,13 @@ impl Tracker {
         contents.push(InitializeIndication::Erase(self.erase));
         contents.push(InitializeIndication::Thumb(self.thumb));
 
-        contents.extend(self.oia.values()
-            .cloned()
-            .map(InitializeIndication::Oia));
-        contents.extend(self.settings.values()
-            .cloned()
-            .map(InitializeIndication::Setting));
+        contents.extend(self.oia.values().cloned().map(InitializeIndication::Oia));
+        contents.extend(
+            self.settings
+                .values()
+                .cloned()
+                .map(InitializeIndication::Setting),
+        );
         contents.extend(self.tls.clone().map(InitializeIndication::Tls));
 
         // Construct a screen snapshot
@@ -232,7 +235,9 @@ impl Tracker {
             Indication::Initialize(contents),
             Indication::Connection(self.connection.clone()),
             Indication::Screen(self.screen_snapshot()),
-            Indication::Formatted {state: self.formatted},
+            Indication::Formatted {
+                state: self.formatted,
+            },
         ];
         if let Some(terminal_name) = self.terminal_name.clone() {
             result.push(Indication::TerminalName(terminal_name));
@@ -255,7 +260,7 @@ impl Tracker {
             let (first, rest) = row.split_at(split_pt);
             row = rest;
             let content = first.iter().map(|cell| cell.ch).collect();
-            result.push(Change{
+            result.push(Change {
                 column,
                 fg: Some(cur_gr.c_fg()),
                 bg: Some(cur_gr.c_bg()),
@@ -269,16 +274,19 @@ impl Tracker {
     }
 
     fn screen_snapshot(&self) -> Screen {
-        Screen{
+        Screen {
             cursor: Some(self.cursor),
-            rows: self.screen.iter()
-                .map(Vec::as_slice).map(Self::format_row)
+            rows: self
+                .screen
+                .iter()
+                .map(Vec::as_slice)
+                .map(Self::format_row)
                 .enumerate()
-                .map(|(row_id, changes)| Row{
+                .map(|(row_id, changes)| Row {
                     row: row_id as u8 - 1,
                     changes,
                 })
-                .collect()
+                .collect(),
         }
     }
 }
@@ -313,7 +321,7 @@ impl Default for Tracker {
             cursor: Cursor {
                 enabled: false,
                 row: None,
-                column: None
+                column: None,
             },
             connection: Connection {
                 state: ConnectionState::NotConnected,

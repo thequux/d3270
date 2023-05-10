@@ -1,29 +1,29 @@
+use anyhow::anyhow;
+use base64::engine::general_purpose::STANDARD as B64_STANDARD;
+use base64::Engine;
+use bytes::Buf;
+use d3270_common::b3270::indication::RunResult;
+use d3270_common::b3270::operation::Action;
+use d3270_common::b3270::{operation, Indication, Operation};
+use d3270_common::tracker::{Disposition, Tracker};
+use futures::future::BoxFuture;
+use futures::{FutureExt, Stream, StreamExt, TryFutureExt};
+use rand::RngCore;
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use anyhow::anyhow;
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD as B64_STANDARD;
-use bytes::Buf;
-use futures::{FutureExt, Stream, StreamExt, TryFutureExt};
-use futures::future::BoxFuture;
-use rand::RngCore;
-use tokio::io::{BufReader, AsyncBufReadExt, Lines, AsyncWrite};
+use tokio::io::{AsyncBufReadExt, AsyncWrite, BufReader, Lines};
 use tokio::process::{Child, ChildStdout};
-use tokio::sync::{mpsc, oneshot, broadcast};
-use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
+use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 use tracing::{error, info, warn};
-use d3270_common::b3270::{Indication, Operation, operation};
-use d3270_common::b3270::indication::RunResult;
-use d3270_common::b3270::operation::Action;
-use d3270_common::tracker::{Disposition, Tracker};
 
 pub struct B3270 {
-    tracker: Tracker, //
-    child: Child, //
-    comm: mpsc::Receiver<B3270Request>, //
-    ind_chan: broadcast::Sender<Indication>, //
+    tracker: Tracker,                            //
+    child: Child,                                //
+    comm: mpsc::Receiver<B3270Request>,          //
+    ind_chan: broadcast::Sender<Indication>,     //
     child_reader: Lines<BufReader<ChildStdout>>, //
 
     write_buf: VecDeque<u8>,
@@ -38,8 +38,14 @@ pub enum B3270Request {
 enum HandleReceiveState {
     Steady(BroadcastStream<Indication>),
     Wait(oneshot::Receiver<(Vec<Indication>, broadcast::Receiver<Indication>)>),
-    Resume(std::vec::IntoIter<Indication>, broadcast::Receiver<Indication>),
-    TryRestart(BoxFuture<'static, Result<(), ()>>, oneshot::Receiver<(Vec<Indication>, broadcast::Receiver<Indication>)>),
+    Resume(
+        std::vec::IntoIter<Indication>,
+        broadcast::Receiver<Indication>,
+    ),
+    TryRestart(
+        BoxFuture<'static, Result<(), ()>>,
+        oneshot::Receiver<(Vec<Indication>, broadcast::Receiver<Indication>)>,
+    ),
 }
 pub struct Handle {
     sender: mpsc::Sender<B3270Request>,
@@ -66,11 +72,12 @@ impl Stream for Handle {
                     match rcvr.poll_unpin(cx) {
                         Poll::Ready(Ok((inds, rcvr))) => {
                             // reverse the indicators so that they can be popped.
-                            self.receiver = Some(HandleReceiveState::Resume(inds.into_iter(), rcvr));
+                            self.receiver =
+                                Some(HandleReceiveState::Resume(inds.into_iter(), rcvr));
                         }
                         Poll::Ready(Err(error)) => {
                             warn!(%error, "unable to reconnect to b3270 server");
-                            return Poll::Ready(None)
+                            return Poll::Ready(None);
                         }
                         Poll::Pending => {
                             self.receiver = Some(HandleReceiveState::Wait(rcvr));
@@ -78,41 +85,41 @@ impl Stream for Handle {
                         }
                     }
                 }
-                Some(HandleReceiveState::Resume(mut inds, rcvr)) => {
-                    match inds.next() {
-                        Some(next) => {
-                            self.receiver = Some(HandleReceiveState::Resume(inds, rcvr));
-                            return Poll::Ready(Some(next));
-                        }
-                        None => {
-                            self.receiver = Some(HandleReceiveState::Steady(BroadcastStream::new(rcvr)));
-                        }
+                Some(HandleReceiveState::Resume(mut inds, rcvr)) => match inds.next() {
+                    Some(next) => {
+                        self.receiver = Some(HandleReceiveState::Resume(inds, rcvr));
+                        return Poll::Ready(Some(next));
                     }
-                }
-                Some(HandleReceiveState::Steady(mut rcvr)) => {
-                    match rcvr.poll_next_unpin(cx) {
-                        Poll::Ready(Some(Ok(msg))) => {
-                            self.receiver = Some(HandleReceiveState::Steady(rcvr));
-                            return Poll::Ready(Some(msg))
-                        }
-                        Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(_)))) => {
-                            warn!("Dropped messages from b3270 server; starting resync");
-                            let (os_snd, os_rcv) = oneshot::channel();
-                            let fut = self.sender.clone().reserve_owned()
-                                .map_ok(move |permit| {
-                                    permit.send(B3270Request::Resync(os_snd));
-                                })
-                                .map_err(|_| ())
-                                .boxed();
-                            self.receiver = Some(HandleReceiveState::TryRestart(fut, os_rcv));
-                        }
-                        Poll::Ready(None) => {
-                            warn!("Failed to receive from b3270 server");
-                            return Poll::Ready(None)
-                        },
-                        Poll::Pending => return Poll::Pending
+                    None => {
+                        self.receiver =
+                            Some(HandleReceiveState::Steady(BroadcastStream::new(rcvr)));
                     }
-                }
+                },
+                Some(HandleReceiveState::Steady(mut rcvr)) => match rcvr.poll_next_unpin(cx) {
+                    Poll::Ready(Some(Ok(msg))) => {
+                        self.receiver = Some(HandleReceiveState::Steady(rcvr));
+                        return Poll::Ready(Some(msg));
+                    }
+                    Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(_)))) => {
+                        warn!("Dropped messages from b3270 server; starting resync");
+                        let (os_snd, os_rcv) = oneshot::channel();
+                        let fut = self
+                            .sender
+                            .clone()
+                            .reserve_owned()
+                            .map_ok(move |permit| {
+                                permit.send(B3270Request::Resync(os_snd));
+                            })
+                            .map_err(|_| ())
+                            .boxed();
+                        self.receiver = Some(HandleReceiveState::TryRestart(fut, os_rcv));
+                    }
+                    Poll::Ready(None) => {
+                        warn!("Failed to receive from b3270 server");
+                        return Poll::Ready(None);
+                    }
+                    Poll::Pending => return Poll::Pending,
+                },
 
                 None => {
                     return Poll::Ready(None);
@@ -122,11 +129,18 @@ impl Stream for Handle {
     }
 }
 
-
 impl B3270 {
-    pub fn spawn(mut child: Child) -> (tokio::task::JoinHandle<anyhow::Error>, mpsc::Sender<B3270Request>) {
+    pub fn spawn(
+        mut child: Child,
+    ) -> (
+        tokio::task::JoinHandle<anyhow::Error>,
+        mpsc::Sender<B3270Request>,
+    ) {
         let (subproc_snd, subproc_rcv) = mpsc::channel(10);
-        let child_reader = child.stdout.take().expect("Should always be given a child that has stdout captured");
+        let child_reader = child
+            .stdout
+            .take()
+            .expect("Should always be given a child that has stdout captured");
         let child_reader = BufReader::new(child_reader).lines();
         // A single connect can result in a flurry of messages, so we need a big buffer
         let (ind_chan, _) = broadcast::channel(100);
@@ -153,9 +167,7 @@ impl Future for B3270 {
         while let Poll::Ready(buf) = Pin::new(&mut self.child_reader).poll_next_line(cx) {
             match buf {
                 Ok(Some(line)) => match serde_json::from_str(&line) {
-                    Ok(ind) => {
-                        indications.push(ind)
-                    },
+                    Ok(ind) => indications.push(ind),
                     Err(error) => {
                         warn!(%error, msg=line, "Failed to parse indication");
                     }
@@ -204,13 +216,15 @@ impl Future for B3270 {
         let mut sync_state = None;
         while let Poll::Ready(cmd) = self.comm.poll_recv(cx) {
             match cmd {
-                None => {},
+                None => {}
                 Some(B3270Request::Resync(sender)) => {
                     if sync_state.is_none() {
                         sync_state = Some(self.tracker.get_init_indication());
                     }
                     // it's OK for this to fail; we just don't get a new client
-                    sender.send((sync_state.clone().unwrap(), self.ind_chan.subscribe())).ok();
+                    sender
+                        .send((sync_state.clone().unwrap(), self.ind_chan.subscribe()))
+                        .ok();
                 }
                 Some(B3270Request::Action(actions, response_chan)) => {
                     let tag = 'find_tag: loop {
@@ -225,15 +239,12 @@ impl Future for B3270 {
                         type_: Some("keymap".to_owned()),
                         actions,
                     });
-                    let result = serde_json::to_writer(
-                        &mut self.write_buf,
-                        &op
-                    );
+                    let result = serde_json::to_writer(&mut self.write_buf, &op);
                     match result {
                         Ok(()) => {
                             self.write_buf.push_back(b'\n');
                             self.action_response_map.insert(tag, response_chan);
-                        },
+                        }
                         Err(error) => error!(?op, %error, "Failed to serialize op"),
                     }
                 }
@@ -244,7 +255,13 @@ impl Future for B3270 {
         'write: while !self.write_buf.is_empty() {
             let myself = &mut *self;
             let chunk = myself.write_buf.chunk();
-            let stdin = Pin::new(myself.child.stdin.as_mut().expect("Should always have child stdin"));
+            let stdin = Pin::new(
+                myself
+                    .child
+                    .stdin
+                    .as_mut()
+                    .expect("Should always have child stdin"),
+            );
             match stdin.poll_write(cx, chunk) {
                 Poll::Pending | Poll::Ready(Ok(0)) => {
                     break 'write;
