@@ -355,7 +355,10 @@ impl OiaTracker {
 impl Default for Tracker {
     fn default() -> Self {
         let ret = Self {
-            screen: vec![],
+            screen: vec![vec![CharCell{
+                attr: u32::c_pack(Color::NeutralWhite, Color::NeutralBlack, GraphicRendition::empty()),
+                ch: ' ',
+            }]],
             oia: Default::default(),
             screen_mode: ScreenMode {
                 columns: 80,
