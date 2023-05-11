@@ -36,6 +36,9 @@ static FLAG_NAMES: &'static [(GraphicRendition, &'static str)] = &[
 
 impl Display for GraphicRendition {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if *self == Self::empty() {
+           return f.write_str("default");
+        }
         let flag_names = FLAG_NAMES
             .iter()
             .filter_map(|(val, name)| self.contains(*val).then_some(*name));
@@ -106,7 +109,7 @@ impl FromStr for GraphicRendition {
                     .iter()
                     .find(|(_, name)| *name == attr)
                     .map(|x| x.0)
-                    .ok_or_else(|| format!("Invalid attr name {attr}"))
+                    .ok_or_else(|| format!("Invalid GR attr name {attr}"))
             })
             .collect()
     }
@@ -241,7 +244,7 @@ impl PackedAttr for u32 {
     }
 
     fn c_setbg(self, bg: Color) -> Self {
-        self & !0xF0000 | (u8::from(bg) as u32) << 20
+        self & !0xF00000 | (u8::from(bg) as u32) << 20
     }
 
     fn c_pack(fg: Color, bg: Color, gr: GraphicRendition) -> Self {

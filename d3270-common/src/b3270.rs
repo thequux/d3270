@@ -1,10 +1,11 @@
 use indication::{
-    CodePage, ConnectAttempt, Connection, Erase, FileTransfer, Hello, Model, Oia, Passthru, Popup,
+    CodePage, ConnectAttempt, Connection, Erase, FileTransfer, Hello, Model, Passthru, Popup,
     Proxy, RunResult, Screen, ScreenMode, Scroll, Setting, Stats, TerminalName, Thumb, Tls,
     TlsHello, TraceFile, UiError,
 };
 use operation::{Fail, Register, Run, Succeed};
 use serde::{Deserialize, Serialize};
+use crate::b3270::indication::OiaField;
 
 pub mod indication;
 pub mod operation;
@@ -44,7 +45,7 @@ pub enum Indication {
     /// The first message sent
     Initialize(Vec<InitializeIndication>),
     /// Change in the state of the Operator Information Area
-    Oia(Oia),
+    Oia(OiaField),
     /// A passthru action has been invoked.
     /// Clients must respond with a succeed or fail operation
     Passthru(Passthru),
@@ -89,7 +90,7 @@ pub enum InitializeIndication {
     /// Indicates which 3270 models are supported
     Models(Vec<Model>),
     /// Change in the state of the Operator Information Area
-    Oia(Oia),
+    Oia(OiaField),
     /// Set of supported prefixes
     Prefixes {
         value: String,

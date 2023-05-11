@@ -1,19 +1,19 @@
-use crate::b3270::indication::{
-    Change, Connection, ConnectionState, CountOrText, Cursor, Erase, Oia, OiaFieldName, Row,
-    RunResult, Screen, ScreenMode, Scroll, Setting, Thumb, Tls, TraceFile,
-};
+use std::collections::HashMap;
+use tracing::warn;
+
+use crate::b3270::indication::{Change, ComposeType, Connection, ConnectionState, CountOrText, Cursor, Erase, OiaField, OiaFieldName, Row, RunResult, Screen, ScreenMode, Scroll, Setting, Thumb, Tls, TraceFile};
 use crate::b3270::types::{Color, GraphicRendition, PackedAttr};
 use crate::b3270::{Indication, InitializeIndication};
-use std::collections::HashMap;
+use crate::b3270::types::Color::{NeutralBlack, NeutralWhite};
 
 #[derive(Copy, Clone, Debug)]
-struct CharCell {
+pub struct CharCell {
     pub ch: char,
     pub attr: u32,
 }
 pub struct Tracker {
     screen: Vec<Vec<CharCell>>,
-    oia: HashMap<OiaFieldName, Oia>,
+    oia: HashMap<OiaFieldName, OiaField>,
     screen_mode: ScreenMode,
     erase: Erase,
     thumb: Thumb,
@@ -26,6 +26,7 @@ pub struct Tracker {
     trace_file: Option<String>,
     tls: Option<Tls>,
 
+    oia_tracker: OiaTracker,
     // These never change, but need to be represented in an initialize message
     static_init: Vec<InitializeIndication>,
 }
@@ -55,13 +56,17 @@ impl Tracker {
                 self.connection = conn.clone();
             }
             Indication::Erase(erase) => {
-                self.erase.logical_cols = erase.logical_cols.or(self.erase.logical_cols);
-                self.erase.logical_rows = erase.logical_rows.or(self.erase.logical_rows);
-                self.erase.fg = erase.fg.or(self.erase.fg);
-                self.erase.bg = erase.bg.or(self.erase.bg);
+                erase.fg = erase.fg.or(self.erase.fg).or(Some(NeutralWhite));
+                erase.bg = erase.bg.or(self.erase.bg).or(Some(NeutralBlack));
+                erase.logical_rows = erase.logical_rows.or(self.erase.logical_rows).or(Some(self.screen_mode.rows));
+                erase.logical_cols = erase.logical_cols.or(self.erase.logical_cols).or(Some(self.screen_mode.columns));
+                self.erase.logical_cols = erase.logical_cols;
+                self.erase.logical_rows = erase.logical_rows;
+                self.erase.fg = erase.fg;
+                self.erase.bg = erase.bg;
 
-                let rows = self.erase.logical_rows.unwrap_or(self.screen_mode.rows) as usize;
-                let cols = self.erase.logical_cols.unwrap_or(self.screen_mode.columns) as usize;
+                let rows = self.erase.logical_rows.unwrap() as usize;
+                let cols = self.erase.logical_cols.unwrap() as usize;
 
                 self.screen = vec![
                     vec![
@@ -119,7 +124,8 @@ impl Tracker {
                 }
             }
             Indication::Oia(oia) => {
-                self.oia.insert(oia.field.field_name(), oia.clone());
+                self.oia.insert(oia.field_name(), oia.clone());
+                self.oia_tracker.notice(oia.clone());
             }
             Indication::Screen(screen) => {
                 if let Some(cursor) = screen.cursor {
@@ -132,19 +138,21 @@ impl Tracker {
                         // update screen contents
                         let cols = self.screen[row_idx].iter_mut().skip(col_idx);
                         match change.change {
-                            CountOrText::Count(n) => cols.take(n).for_each(|cell| {
-                                let mut attr = cell.attr;
-                                if let Some(fg) = change.fg {
-                                    attr = attr.c_setfg(fg);
-                                }
-                                if let Some(bg) = change.bg {
-                                    attr = attr.c_setbg(bg);
-                                }
-                                if let Some(gr) = change.gr {
-                                    attr = attr.c_setgr(gr);
-                                }
-                                cell.attr = attr;
-                            }),
+                            CountOrText::Count(n) => {
+                                cols.take(n).for_each(|cell| {
+                                    let mut attr = cell.attr;
+                                    if let Some(fg) = change.fg {
+                                        attr = attr.c_setfg(fg);
+                                    }
+                                    if let Some(bg) = change.bg {
+                                        attr = attr.c_setbg(bg);
+                                    }
+                                    if let Some(gr) = change.gr {
+                                        attr = attr.c_setgr(gr);
+                                    }
+                                    cell.attr = attr;
+                                });
+                            },
                             CountOrText::Text(ref text) => {
                                 cols.zip(text.chars()).for_each(|(cell, ch)| {
                                     let mut attr = cell.attr;
@@ -283,6 +291,65 @@ impl Tracker {
                 .collect(),
         }
     }
+
+    pub fn get_screen(&self) -> &Vec<Vec<CharCell>> {
+        &self.screen
+    }
+
+    pub fn get_oia(&self) -> &HashMap<OiaFieldName, OiaField> {
+        &self.oia
+    }
+
+    pub fn get_cursor(&self) -> &Cursor {
+        &self.cursor
+    }
+
+    pub fn get_oia_state(&self) -> &OiaTracker {
+        &self.oia_tracker
+    }
+
+    pub fn get_connection(&self) -> &Connection { &self.connection }
+}
+
+#[derive(Default)]
+pub struct OiaTracker {
+    pub compose: Option<(ComposeType, String)>,
+    pub insert: bool,
+    pub lock: Option<String>,
+    /// terminal, printer
+    pub lu: Option<String>,
+    pub not_undera: bool,
+    pub printer_lu: Option<String>,
+    pub reverse_input: bool,
+    pub screen_trace: Option<usize>,
+    pub script: bool,
+    pub timing: Option<String>,
+    pub typeahead: bool,
+}
+
+impl OiaTracker {
+    pub fn notice(&mut self, oia: OiaField) {
+        match oia {
+            OiaField::Compose { value: true, type_: Some(typ), char:Some(ch_str) } => {
+                self.compose = Some((typ, ch_str))
+            }
+            OiaField::Compose { value: false, ..} => self.compose = None,
+            OiaField::Compose { .. } => warn!(?oia, "Unexpected OIA compose setting"),
+            OiaField::Insert { value } => self.insert = value,
+            OiaField::Lock { value } => self.lock = value,
+            OiaField::Lu { value, lu } => {
+                self.lu = Some(value);
+                self.printer_lu = lu;
+            }
+            OiaField::NotUndera { value } => self.not_undera = value,
+            OiaField::ReverseInput { value } => self.reverse_input = value,
+            OiaField::ScreenTrace { value } => self.screen_trace = value,
+            OiaField::Script { value } => self.script = value,
+            OiaField::Timing { value } => self.timing = value,
+            OiaField::Typeahead { value } => self.typeahead = value,
+        };
+    }
+
 }
 
 impl Default for Tracker {
@@ -326,6 +393,7 @@ impl Default for Tracker {
             trace_file: None,
             tls: None,
             static_init: vec![],
+            oia_tracker: OiaTracker::default(),
         };
         ret
     }

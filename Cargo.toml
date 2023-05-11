@@ -2,5 +2,6 @@
 members = [
   "d3270-common",
   "d3270d",
-  "qt3270"
+  "qt3270",
+  "d3270console",
 ]

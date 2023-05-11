@@ -96,15 +96,6 @@ pub struct Model {
     pub columns: u8,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-// This could be more typesafe, probably ¯\_(ツ)_/¯
-pub struct Oia {
-    #[serde(flatten)]
-    pub field: OiaField,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lu: Option<String>,
-}
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "field")]
 #[derive(Debug, PartialEq, Clone)]
@@ -137,25 +128,26 @@ pub enum OiaField {
     NotUndera {
         value: bool,
     },
-    PrinterSession {
-        value: bool,
-        /// Printer session LU name
-        // TODO: determine if this is sent with this message or with Lu
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        lu: Option<String>,
-    },
+    // PrinterSession {
+    //     value: bool,
+    //     /// Printer session LU name
+    //     // TODO: determine if this is sent with this message or with Lu
+    //     #[serde(default, skip_serializing_if = "Option::is_none")]
+    //     lu: Option<String>,
+    // },
     /// Reverse input mode
     ReverseInput {
         value: bool,
     },
     /// Screen trace count
     ScreenTrace {
-        value: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        value: Option<usize>,
     },
-    /// Host command timer (minutes:seconds)
     Script {
         value: bool,
     },
+    /// Host command timer (minutes:seconds)
     Timing {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         value: Option<String>,
@@ -188,7 +180,7 @@ impl OiaField {
             OiaField::Lock { .. } => OiaFieldName::Lock,
             OiaField::Lu { .. } => OiaFieldName::Lu,
             OiaField::NotUndera { .. } => OiaFieldName::NotUndera,
-            OiaField::PrinterSession { .. } => OiaFieldName::PrinterSession,
+            // OiaField::PrinterSession { .. } => OiaFieldName::PrinterSession,
             OiaField::ReverseInput { .. } => OiaFieldName::ReverseInput,
             OiaField::ScreenTrace { .. } => OiaFieldName::ScreenTrace,
             OiaField::Script { .. } => OiaFieldName::Script,
@@ -334,6 +326,15 @@ pub struct Row {
 pub enum CountOrText {
     Count(usize),
     Text(String),
+}
+
+impl CountOrText {
+    pub fn len(&self) -> usize {
+        match self {
+            CountOrText::Count(n) => *n,
+            CountOrText::Text(text) => text.chars().count(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
