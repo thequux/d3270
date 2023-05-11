@@ -46,10 +46,10 @@ async fn main() -> anyhow::Result<()> {
         .stdout(Stdio::piped())
         .spawn()?;
 
-    let (_server, _server_req) = connection::B3270::spawn(subproc);
+    let (_server, _server_req) = arbiter::B3270::spawn(subproc);
     // TODO: make connection before starting listeners
 
     Ok(())
 }
 
-pub mod connection;
+pub mod arbiter;
