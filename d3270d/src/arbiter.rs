@@ -1,23 +1,24 @@
-use anyhow::anyhow;
-use base64::engine::general_purpose::STANDARD as B64_STANDARD;
-use base64::Engine;
-use bytes::Buf;
-use d3270_common::b3270::indication::RunResult;
-use d3270_common::b3270::operation::Action;
-use d3270_common::b3270::{operation, Indication, Operation};
-use d3270_common::tracker::{Disposition, Tracker};
-use futures::future::BoxFuture;
-use futures::{FutureExt, Stream, StreamExt, TryFutureExt};
-use rand::RngCore;
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+
+use anyhow::anyhow;
+use base64::engine::general_purpose::STANDARD as B64_STANDARD;
+use base64::Engine;
+use bytes::Buf;
+use futures::{FutureExt, Stream, StreamExt, TryFutureExt};
+use rand::RngCore;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, BufReader, Lines};
 use tokio::process::{Child, ChildStdout};
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
-use tracing::{error, info, warn};
+use tracing::{error, info, info_span, instrument, trace, warn, Instrument};
+
+use d3270_common::b3270::indication::RunResult;
+use d3270_common::b3270::operation::Action;
+use d3270_common::b3270::{operation, Indication, Operation};
+use d3270_common::tracker::{Disposition, Tracker};
 
 enum B3270Request {
     Action(Vec<Action>, oneshot::Sender<RunResult>),
@@ -32,7 +33,7 @@ enum HandleReceiveState {
         broadcast::Receiver<Indication>,
     ),
     TryRestart(
-        BoxFuture<'static, Result<(), ()>>,
+        Pin<Box<dyn Future<Output = Result<(), ()>> + Send + Sync>>,
         oneshot::Receiver<(Vec<Indication>, broadcast::Receiver<Indication>)>,
     ),
 }
@@ -48,6 +49,8 @@ impl ArbiterHandle {
     ) -> anyhow::Result<oneshot::Receiver<RunResult>> {
         self.send_actions(vec![action]).await
     }
+
+    #[instrument(skip(self))]
     pub async fn send_actions(
         &self,
         actions: Vec<Action>,
@@ -107,8 +110,11 @@ impl Stream for ArbiterHandle {
                         self.receiver = Some(HandleReceiveState::Steady(rcvr));
                         return Poll::Ready(Some(msg));
                     }
-                    Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(_)))) => {
-                        warn!("Dropped messages from b3270 server; starting resync");
+                    Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(n)))) => {
+                        info!(
+                            dropped = n,
+                            "Dropped messages from b3270 server; starting resync"
+                        );
                         let (os_snd, os_rcv) = oneshot::channel();
                         let fut = self
                             .sender
@@ -117,9 +123,9 @@ impl Stream for ArbiterHandle {
                             .map_ok(move |permit| {
                                 permit.send(B3270Request::Resync(os_snd));
                             })
-                            .map_err(|_| ())
-                            .boxed();
-                        self.receiver = Some(HandleReceiveState::TryRestart(fut, os_rcv));
+                            .map_err(|_| ());
+
+                        self.receiver = Some(HandleReceiveState::TryRestart(Box::pin(fut), os_rcv));
                     }
                     Poll::Ready(None) => {
                         warn!("Failed to receive from b3270 server");
@@ -140,9 +146,10 @@ impl Stream for ArbiterHandle {
 }
 
 #[derive(Clone)]
-pub struct B3270HandleRequester(mpsc::Sender<B3270Request>);
+pub struct ArbiterHandleRequester(mpsc::Sender<B3270Request>);
 
-impl B3270HandleRequester {
+impl ArbiterHandleRequester {
+    #[instrument(skip(self))]
     pub async fn connect(&self) -> anyhow::Result<ArbiterHandle> {
         let (conn_send, conn_rcv) = oneshot::channel();
         self.0
@@ -172,7 +179,11 @@ pub struct B3270 {
 impl B3270 {
     pub fn spawn(
         mut child: Child,
-    ) -> (tokio::task::JoinHandle<anyhow::Error>, B3270HandleRequester) {
+        initial_actions: &[Action],
+    ) -> (
+        tokio::task::JoinHandle<anyhow::Error>,
+        ArbiterHandleRequester,
+    ) {
         let (subproc_snd, subproc_rcv) = mpsc::channel(10);
         let child_reader = child
             .stdout
@@ -181,16 +192,27 @@ impl B3270 {
         let child_reader = BufReader::new(child_reader).lines();
         // A single connect can result in a flurry of messages, so we need a big buffer
         let (ind_chan, _) = broadcast::channel(100);
+
+        let mut write_buf = VecDeque::new();
+        // Queue any initial actions.
+        for action in initial_actions {
+            serde_json::to_writer(&mut write_buf, action).unwrap();
+            write_buf.push_back(b'\n');
+        }
+
         let proc = B3270 {
             child,
             child_reader,
             tracker: Tracker::default(),
             comm: subproc_rcv,
             ind_chan,
-            write_buf: VecDeque::new(),
+            write_buf,
             action_response_map: Default::default(),
         };
-        (tokio::task::spawn(proc), B3270HandleRequester(subproc_snd))
+        (
+            tokio::task::spawn(proc.instrument(info_span!("arbiter"))),
+            ArbiterHandleRequester(subproc_snd),
+        )
     }
 }
 
@@ -204,7 +226,10 @@ impl Future for B3270 {
         while let Poll::Ready(buf) = Pin::new(&mut self.child_reader).poll_next_line(cx) {
             match buf {
                 Ok(Some(line)) => match serde_json::from_str(&line) {
-                    Ok(ind) => indications.push(ind),
+                    Ok(ind) => {
+                        trace!(json = line, "Received indication");
+                        indications.push(ind)
+                    }
                     Err(error) => {
                         warn!(%error, msg=line, "Failed to parse indication");
                     }
@@ -276,9 +301,10 @@ impl Future for B3270 {
                         type_: Some("keymap".to_owned()),
                         actions,
                     });
-                    let result = serde_json::to_writer(&mut self.write_buf, &op);
-                    match result {
-                        Ok(()) => {
+                    match serde_json::to_string(&op) {
+                        Ok(op_str) => {
+                            trace!(json = op_str, "Sending operation");
+                            self.write_buf.extend(op_str.bytes());
                             self.write_buf.push_back(b'\n');
                             self.action_response_map.insert(tag, response_chan);
                         }
