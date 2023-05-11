@@ -16,7 +16,7 @@ use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 use tracing::{error, info, info_span, instrument, trace, warn, Instrument};
 
 use d3270_common::b3270::indication::RunResult;
-use d3270_common::b3270::operation::Action;
+use d3270_common::b3270::operation::{Action, Run};
 use d3270_common::b3270::{operation, Indication, Operation};
 use d3270_common::tracker::{Disposition, Tracker};
 
@@ -194,11 +194,16 @@ impl B3270 {
         let (ind_chan, _) = broadcast::channel(100);
 
         let mut write_buf = VecDeque::new();
+
         // Queue any initial actions.
-        for action in initial_actions {
-            serde_json::to_writer(&mut write_buf, action).unwrap();
-            write_buf.push_back(b'\n');
-        }
+        let act_str = serde_json::to_string(&Operation::Run(Run{
+            actions: initial_actions.to_vec(),
+            type_: Some("keybind".to_owned()),
+            r_tag: None,
+        })).unwrap();
+        trace!(json=%act_str, "Writing initialization action");
+        write_buf.extend(act_str.as_bytes());
+        write_buf.push_back(b'\n');
 
         let proc = B3270 {
             child,
@@ -227,11 +232,11 @@ impl Future for B3270 {
             match buf {
                 Ok(Some(line)) => match serde_json::from_str(&line) {
                     Ok(ind) => {
-                        trace!(json = line, "Received indication");
+                        trace!(json = %line, "Received indication");
                         indications.push(ind)
                     }
                     Err(error) => {
-                        warn!(%error, msg=line, "Failed to parse indication");
+                        warn!(%error, msg=%line, "Failed to parse indication");
                     }
                 },
                 // EOF on stdin; this is a big problem

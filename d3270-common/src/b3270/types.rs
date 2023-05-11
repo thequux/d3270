@@ -97,6 +97,9 @@ impl FromStr for GraphicRendition {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "default" {
+            return Ok(GraphicRendition::empty());
+        }
         s.split(",")
             .map(|attr| {
                 FLAG_NAMES
@@ -136,7 +139,7 @@ mod test {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
-#[serde(rename = "camelCase")]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub enum Color {
     NeutralBlack,

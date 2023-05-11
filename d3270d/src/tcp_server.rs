@@ -6,16 +6,23 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::select;
 use tokio::task::JoinHandle;
-use tracing::{error, info, info_span, Instrument};
+use tracing::{error, info, info_span, Instrument, instrument};
 
 use crate::arbiter::ArbiterHandleRequester;
 use crate::gen_connection::GenConnection;
 
+#[instrument(skip(handle_requester))]
 pub async fn listener_proc(
     socket: SocketAddr,
     handle_requester: ArbiterHandleRequester,
 ) -> anyhow::Result<JoinHandle<anyhow::Error>> {
-    let listener = tokio::net::TcpListener::bind(socket.clone()).await?;
+    let listener = match tokio::net::TcpListener::bind(socket.clone()).await {
+        Err(error) => {
+            error!(?socket, ?error, "Failed to bind");
+            return Err(error.into());
+        }
+        Ok(listener) => listener
+    };
     let span = info_span!(target: "connection-handling", "tcp_listener", addr=%socket);
     Ok(tokio::spawn(
         async move {

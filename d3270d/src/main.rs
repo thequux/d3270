@@ -9,7 +9,9 @@ use anyhow::anyhow;
 use futures::future::select_all;
 use futures::FutureExt;
 use tokio::task::JoinHandle;
-use tracing::error;
+use tracing::{error, info};
+use tracing_subscriber::fmt::format::FmtSpan;
+use tracing_subscriber::prelude::*;
 
 use d3270_common::b3270::operation::Action;
 
@@ -46,10 +48,26 @@ impl JoinHandleTagExt for JoinHandle<anyhow::Error> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut subprocess_args = vec![OsString::from_str("-json").unwrap()];
+    // Configure logging
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::filter::EnvFilter::from_default_env())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_span_events(FmtSpan::ACTIVE)
+        ).init();
+
+    info!("Test");
+
+    let mut subprocess_args = vec![
+        OsString::from_str("-json").unwrap(),
+        OsString::from_str("-utf8").unwrap(),
+    ];
     let mut args_iter = std::env::args_os().peekable();
     let mut connect_str = None;
     let mut tcp_listen = None;
+
+    args_iter.next(); // skip program name.
+
     while let Some(arg) = args_iter.next() {
         // we default to one of the ignored args
         match arg.to_str().unwrap_or("-json") {
@@ -92,6 +110,7 @@ async fn main() -> anyhow::Result<()> {
 
     let connect_str = connect_str.ok_or_else(|| anyhow!("No connect string given"))?;
 
+    info!(args=?subprocess_args, "Starting b3270");
     let subproc = tokio::process::Command::new("b3270")
         .args(&subprocess_args)
         .stdin(Stdio::piped())

@@ -61,12 +61,12 @@ pub enum ConnectionState {
     TelnetPending,
     ConnectedNvt,
     ConnectedNvtCharmode,
+    #[serde(rename="connected-3270")]
     Connected3270,
     ConnectedUnbound,
     ConnectedENvt,
-    ConnectedESscp,
-    #[serde(rename = "connected-e-tn3270e")]
-    ConnectedETn3270e,
+    ConnectedSscp,
+    ConnectedTn3270e,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -154,7 +154,7 @@ pub enum OiaField {
     },
     /// Host command timer (minutes:seconds)
     Script {
-        value: String,
+        value: bool,
     },
     Timing {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -200,8 +200,9 @@ impl OiaField {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Proxy {
     pub name: String,
-    pub username: String,
-    pub port: u16,
+    pub username: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -209,14 +210,15 @@ pub struct Setting {
     pub name: String,
     /// I'd love something other than depending on serde_json for this.
     pub value: Option<serde_json::Value>,
-    pub cause: ActionCause,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cause: Option<ActionCause>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
 pub struct ScreenMode {
     pub model: u8,
     pub rows: u8,
-    pub cols: u8,
+    pub columns: u8,
     pub color: bool,
     pub oversize: bool,
     pub extended: bool,
@@ -284,7 +286,7 @@ pub enum FileTransferState {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Passthru {
     pub p_tag: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -304,7 +306,7 @@ pub struct Popup {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Copy, Clone)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum PopupType {
     /// Error message from a connection attempt
     ConnectError,
@@ -321,14 +323,14 @@ pub enum PopupType {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Row {
     pub row: u8,
     pub changes: Vec<Change>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum CountOrText {
     Count(usize),
     Text(String),
@@ -357,7 +359,7 @@ pub struct Screen {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct RunResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub r_tag: Option<String>,
@@ -371,7 +373,7 @@ pub struct RunResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Scroll {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fg: Option<Color>,
@@ -380,7 +382,7 @@ pub struct Scroll {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[serde(rename = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Stats {
     pub bytes_received: usize,
     pub bytes_sent: usize,
@@ -435,12 +437,23 @@ mod test {
     #[test]
     pub fn connection_state_serializes_as_expected() {
         assert_eq!(
-            serde_json::to_string(&ConnectionState::ConnectedETn3270e).unwrap(),
-            r#""connected-e-tn3270e""#
+            serde_json::to_string(&ConnectionState::ConnectedTn3270e).unwrap(),
+            r#""connected-tn3270e""#
         );
         assert_eq!(
-            serde_json::to_string(&ConnectionState::ConnectedESscp).unwrap(),
-            r#""connected-e-sscp""#
+            serde_json::to_string(&ConnectionState::ConnectedSscp).unwrap(),
+            r#""connected-sscp""#
         );
+    }
+
+    fn parse_row() {
+        let instr = r#"[{"row":1,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","text":"z/OS V1R13 PUT Level 1401"},{"column":26,"fg":"red","gr":"highlight,selectable","count":26},{"column":52,"fg":"red","gr":"highlight,selectable","text":"IP Address = 10.24.74.32     "}]},{"row":2,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":51},{"column":52,"fg":"red","gr":"highlight,selectable","text":"VTAM Terminal = SC0TCP05     "}]},{"row":3,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":80}]},{"row":4,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":23},{"column":24,"fg":"red","gr":"highlight,selectable","text":"Application Developer System"},{"column":52,"fg":"red","gr":"highlight,selectable","count":29}]},{"row":5,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":80}]},{"row":6,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":32},{"column":33,"fg":"red","gr":"highlight,selectable","text":"//  OOOOOOO   SSSSS"},{"column":52,"fg":"red","gr":"highlight,selectable","count":29}]},{"row":7,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":31},{"column":32,"fg":"red","gr":"highlight,selectable","text":"//  OO    OO SS"},{"column":47,"fg":"red","gr":"highlight,selectable","count":34}]},{"row":8,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":23},{"column":24,"fg":"red","gr":"highlight,selectable","text":"zzzzzz //  OO    OO SS"},{"column":46,"fg":"red","gr":"highlight,selectable","count":35}]},{"row":9,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":25},{"column":26,"fg":"red","gr":"highlight,selectable","text":"zz  //  OO    OO SSSS"},{"column":47,"fg":"red","gr":"highlight,selectable","count":34}]},{"row":10,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":23},{"column":24,"fg":"red","gr":"highlight,selectable","text":"zz   //  OO    OO      SS"},{"column":49,"fg":"red","gr":"highlight,selectable","count":32}]},{"row":11,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":21},{"column":22,"fg":"red","gr":"highlight,selectable","text":"zz    //  OO    OO      SS"},{"column":48,"fg":"red","gr":"highlight,selectable","count":33}]},{"row":12,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":19},{"column":20,"fg":"red","gr":"highlight,selectable","text":"zzzzzz //   OOOOOOO  SSSS"},{"column":45,"fg":"red","gr":"highlight,selectable","count":36}]},{"row":13,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":80}]},{"row":14,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":80}]},{"row":15,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":19},{"column":20,"fg":"red","gr":"highlight,selectable","text":"System Customization - ADCD.Z113H.*"},{"column":55,"fg":"red","gr":"highlight,selectable","count":26}]},{"row":16,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":80}]},{"row":17,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":80}]},{"row":18,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":80}]},{"row":19,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":80}]},{"row":20,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","text":" ===> Enter \"LOGON\" followed by the TSO userid. Example \"LOGON IBMUSER\" or      "}]},{"row":21,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","text":" ===> Enter L followed by the APPLID"},{"column":37,"fg":"red","gr":"highlight,selectable","count":44}]},{"row":22,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","text":" ===> Examples: \"L TSO\", \"L CICSTS41\", \"L CICSTS42\", \"L IMS11\", \"L IMS12\"       "}]},{"row":23,"changes":[{"column":1,"fg":"red","gr":"highlight,selectable","count":79},{"column":80,"fg":"green","count":1}]},{"row":24,"changes":[{"column":1,"fg":"green","count":79},{"column":80,"fg":"red","gr":"highlight,selectable","count":1}]}]"#;
+        if let Err(err) = serde_json::from_slice::<Vec<Row>>(instr.as_bytes()) {
+            let pos = err.column();
+            println!("Parse error: {err}");
+            let (pre, post) = instr.split_at(err.column());
+            println!("Context: {pre}\x1b[1;31m{post}\x1b[0m");
+            panic!("{}", err);
+        }
     }
 }

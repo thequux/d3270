@@ -1,6 +1,6 @@
 use crate::b3270::indication::{
     Change, Connection, ConnectionState, CountOrText, Cursor, Erase, Oia, OiaFieldName, Row,
-    RunResult, Screen, ScreenMode, Scroll, Setting, TerminalName, Thumb, Tls, TraceFile,
+    RunResult, Screen, ScreenMode, Scroll, Setting, Thumb, Tls, TraceFile,
 };
 use crate::b3270::types::{Color, GraphicRendition, PackedAttr};
 use crate::b3270::{Indication, InitializeIndication};
@@ -23,7 +23,6 @@ pub struct Tracker {
     cursor: Cursor,
     connection: Connection,
     formatted: bool,
-    terminal_name: Option<TerminalName>,
     trace_file: Option<String>,
     tls: Option<Tls>,
 
@@ -62,7 +61,7 @@ impl Tracker {
                 self.erase.bg = erase.bg.or(self.erase.bg);
 
                 let rows = self.erase.logical_rows.unwrap_or(self.screen_mode.rows) as usize;
-                let cols = self.erase.logical_cols.unwrap_or(self.screen_mode.cols) as usize;
+                let cols = self.erase.logical_cols.unwrap_or(self.screen_mode.columns) as usize;
 
                 self.screen = vec![
                     vec![
@@ -92,6 +91,7 @@ impl Tracker {
                         | InitializeIndication::Models(_)
                         | InitializeIndication::Prefixes { .. }
                         | InitializeIndication::Proxies(_)
+                        | InitializeIndication::TerminalName(_)
                         | InitializeIndication::TlsHello(_)
                         | InitializeIndication::Tls(_)
                         | InitializeIndication::TraceFile(_) => static_init.push(indicator),
@@ -169,7 +169,7 @@ impl Tracker {
                 self.screen_mode = *mode;
                 self.handle_indication(&mut Indication::Erase(Erase {
                     logical_rows: Some(self.screen_mode.rows),
-                    logical_cols: Some(self.screen_mode.cols),
+                    logical_cols: Some(self.screen_mode.columns),
                     fg: None,
                     bg: None,
                 }));
@@ -186,9 +186,6 @@ impl Tracker {
             }
             Indication::Setting(setting) => {
                 self.settings.insert(setting.name.clone(), setting.clone());
-            }
-            Indication::TerminalName(term) => {
-                self.terminal_name = Some(term.clone());
             }
             Indication::Thumb(thumb) => {
                 self.thumb = thumb.clone();
@@ -239,9 +236,6 @@ impl Tracker {
                 state: self.formatted,
             },
         ];
-        if let Some(terminal_name) = self.terminal_name.clone() {
-            result.push(Indication::TerminalName(terminal_name));
-        }
         if let Some(trace_file) = self.trace_file.clone() {
             result.push(Indication::TraceFile(TraceFile {
                 name: Some(trace_file),
@@ -283,7 +277,7 @@ impl Tracker {
                 .map(Self::format_row)
                 .enumerate()
                 .map(|(row_id, changes)| Row {
-                    row: row_id as u8 - 1,
+                    row: row_id as u8 + 1,
                     changes,
                 })
                 .collect(),
@@ -297,7 +291,7 @@ impl Default for Tracker {
             screen: vec![],
             oia: Default::default(),
             screen_mode: ScreenMode {
-                cols: 80,
+                columns: 80,
                 rows: 43,
                 color: true,
                 model: 4,
@@ -329,7 +323,6 @@ impl Default for Tracker {
                 cause: None,
             },
             formatted: false,
-            terminal_name: None,
             trace_file: None,
             tls: None,
             static_init: vec![],

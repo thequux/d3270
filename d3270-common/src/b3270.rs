@@ -11,6 +11,7 @@ pub mod operation;
 pub mod types;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[serde(rename_all="kebab-case")]
 pub enum Indication {
     Bell {}, // TODO: make sure this emits/parses {"bell": {}}
     /// Indicates that the host connection has changed state.
@@ -61,8 +62,6 @@ pub enum Indication {
     Setting(Setting),
     /// I/O statistics
     Stats(Stats),
-    /// Reports the terminal name sent to the host during TELNET negotiation
-    TerminalName(TerminalName),
     /// Change in the scrollbar thumb
     Thumb(Thumb),
     /// Indicates the name of the trace file
@@ -101,6 +100,8 @@ pub enum InitializeIndication {
     ScreenMode(ScreenMode),
     /// Setting changed
     Setting(Setting),
+    /// Reports the terminal name sent to the host during TELNET negotiation
+    TerminalName(TerminalName),
     /// Scroll thumb position
     Thumb(Thumb),
     /// Indicates build-time TLS config
