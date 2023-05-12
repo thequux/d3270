@@ -1,6 +1,4 @@
 import './style.css'
-import typescriptLogo from './typescript.svg'
-import viteLogo from '/vite.svg'
 import {Action, Color, Cursor, IndErase, Indication, IndScreen, InitializeIndication, Operation} from "./suite3270.ts";
 
 type GrElement = "underline" | "blink" | "highlight" | "selectable" | "reverse" | "wide" | "order" | "private-use" | "no-copy" | "wrap";
