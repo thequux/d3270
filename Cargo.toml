@@ -5,3 +5,6 @@ members = [
   "qt3270",
   "d3270console",
 ]
+
+[profile.release]
+strip="debuginfo"

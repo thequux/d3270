@@ -1,3 +1,21 @@
+/*************************************************************************
+ * D3270 - Detachable 3270 interface                                      *
+ * Copyright (C) 2023  Daniel Hirsch                                      *
+ *                                                                        *
+ * This program is free software: you can redistribute it and/or modify   *
+ * it under the terms of the GNU General Public License as published by   *
+ * the Free Software Foundation, either version 3 of the License, or      *
+ * (at your option) any later version.                                    *
+ *                                                                        *
+ * This program is distributed in the hope that it will be useful,        *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of         *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          *
+ * GNU General Public License for more details.                           *
+ *                                                                        *
+ * You should have received a copy of the GNU General Public License      *
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. *
+ *************************************************************************/
+
 use std::fmt::Debug;
 use std::io;
 use std::io::Write;
@@ -175,7 +193,7 @@ impl State {
             },
             ta = oia.typeahead.if_else('T', ' '),
             rm = oia.reverse_input.if_else('R', ' '),
-            im = oia.reverse_input.if_else('^', ' '),
+            im = oia.insert.if_else('^', ' '),
             pr = oia.printer_lu.is_some().if_else('P', ' '),
             // security?
             st = oia.screen_trace.is_some().if_else('t', ' '),
@@ -348,8 +366,6 @@ async fn main() -> anyhow::Result<()> {
                             (KeyCode::Enter, _) => actions![Enter()],
                             (KeyCode::F(n), KeyModifiers::NONE) => actions!(PF(n)),
                             (KeyCode::F(n), KeyModifiers::SHIFT) => actions!(PF(n+12)),
-                            (KeyCode::Char('r'), KeyModifiers::CONTROL) => actions!(Reset()),
-                            (KeyCode::Esc, KeyModifiers::NONE) => actions!(Attn()),
                             (KeyCode::Tab, KeyModifiers::NONE) => actions!(Tab()),
                             (KeyCode::Tab, KeyModifiers::SHIFT) |
                             (KeyCode::BackTab, _) => actions!(BackTab()),
@@ -361,6 +377,10 @@ async fn main() -> anyhow::Result<()> {
                             (KeyCode::Right, KeyModifiers::NONE) => actions!(Right()),
                             (KeyCode::PageUp, KeyModifiers::NONE) => actions!(Scroll("backward")),
                             (KeyCode::PageDown, KeyModifiers::NONE) => actions!(Scroll("forward")),
+                            (KeyCode::Char('a'), KeyModifiers::ALT) => actions!(Attn()),
+                            (KeyCode::Char('c'), KeyModifiers::ALT) => actions!(Reconnect()),
+                            (KeyCode::Char('r'), KeyModifiers::ALT) => actions!(Reset()),
+
                             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
                                 state.redraw_all()?;
                                 continue 'main;

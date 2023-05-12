@@ -1,3 +1,21 @@
+/*************************************************************************
+ * D3270 - Detachable 3270 interface                                      *
+ * Copyright (C) 2023  Daniel Hirsch                                      *
+ *                                                                        *
+ * This program is free software: you can redistribute it and/or modify   *
+ * it under the terms of the GNU General Public License as published by   *
+ * the Free Software Foundation, either version 3 of the License, or      *
+ * (at your option) any later version.                                    *
+ *                                                                        *
+ * This program is distributed in the hope that it will be useful,        *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of         *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          *
+ * GNU General Public License for more details.                           *
+ *                                                                        *
+ * You should have received a copy of the GNU General Public License      *
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>. *
+ *************************************************************************/
+
 use std::net::SocketAddr;
 
 use anyhow::bail;
@@ -24,6 +42,7 @@ pub async fn listener_proc(
         Ok(listener) => listener
     };
     let span = info_span!(target: "connection-handling", "tcp_listener", addr=%socket);
+    info!("TCP listener starting");
     Ok(tokio::spawn(
         async move {
             let error = listener_task(listener, handle_requester).await.unwrap_err();
@@ -61,6 +80,7 @@ async fn handle_tcp_connection(
     mut conn: TcpStream,
     handle_requester: ArbiterHandleRequester,
 ) -> anyhow::Result<()> {
+    info!("Handling TCP connection");
     let (stream_rd, mut stream_wr) = conn.split();
     let mut stream_rd = BufReader::new(stream_rd).lines();
 

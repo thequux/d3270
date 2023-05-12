@@ -1,7 +1,40 @@
+/*************************************************************************
+* D3270 - Detachable 3270 interface                                      *
+* Copyright (C) 2023  Daniel Hirsch                                      *
+*                                                                        *
+* This program is free software: you can redistribute it and/or modify   *
+* it under the terms of the GNU General Public License as published by   *
+* the Free Software Foundation, either version 3 of the License, or      *
+* (at your option) any later version.                                    *
+*                                                                        *
+* This program is distributed in the hope that it will be useful,        *
+* but WITHOUT ANY WARRANTY; without even the implied warranty of         *
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          *
+* GNU General Public License for more details.                           *
+*                                                                        *
+* You should have received a copy of the GNU General Public License      *
+* along with this program.  If not, see <https://www.gnu.org/licenses/>. *
+*************************************************************************/
+
 $chroma: 100%;
 $lightnessMain: 75%;
 $lightnessIntense: 85%;
 $lightnessDark: 60%;
+
+@font-face {
+  font-family: 'HackWoff';
+  src: url('../fonts/hack-regular-subset.woff2') format('woff2'), url('../fonts/hack-regular-subset.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'HackWoff';
+  src: url('../fonts/hack-bold-subset.woff2') format('woff2'), url('../fonts/hack-bold-subset.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+}
+
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -107,16 +140,32 @@ button:focus-visible {
   border-spacing: 0;
 }
 
-table.cgrid td {
+#app {
   white-space: pre;
-  font-family: "IBM P", "Operator Mono", monospace;
+  font-family: "HackWoff", monospace;
   font-weight: 300;
   padding: 0;
 }
-
-.cgrid [data-bg="neutralBlack"] {
-  background: oklch(0 0 0);
+table.cgrid td {
+  padding: 0;
 }
+
+.cgrid [data-bg="neutralBlack"] { background: oklch(0.2 0 0); }
+.cgrid [data-bg="blue"] { background: oklch($lightnessMain $chroma 240deg); }
+.cgrid [data-bg="red"] { background: oklch($lightnessMain $chroma 20deg); }
+.cgrid [data-bg="pink"] { background: oklch($lightnessMain $chroma 340deg); }
+.cgrid [data-bg="green"] { background: oklch($lightnessMain $chroma 150deg); }
+.cgrid [data-bg="turquoise"] { background: oklch($lightnessMain $chroma 190deg); }
+.cgrid [data-bg="yellow"] { background: oklch($lightnessMain $chroma 110deg); }
+.cgrid [data-bg="neutralWhite"] { background: oklch($lightnessMain 0 0); }
+.cgrid [data-bg="black"] {background: #000; }
+.cgrid [data-bg="deepBlue"] {background: oklch($lightnessDark $chroma 240deg); }
+.cgrid [data-bg="orange"] {background: oklch($lightnessDark $chroma 70deg); }
+.cgrid [data-bg="purple"] { background: oklch($lightnessDark $chroma 320deg);}
+.cgrid [data-bg="paleGreen"] { background: oklch(92% $chroma 150deg); }
+.cgrid [data-bg="paleTurquoise"] { background: oklch(95% $chroma 190deg); }
+.cgrid [data-bg="gray"] { background: oklch(55% 0 0); }
+.cgrid [data-bg="white"] { background: oklch($lightnessIntense 0 0); }
 
 .cgrid [data-fg="neutralBlack"] { color: oklch(0.2 0 0); }
 .cgrid [data-fg="blue"] { color: oklch($lightnessMain $chroma 240deg); }
@@ -139,3 +188,55 @@ table.cgrid td {
 
 .cgrid [data-gr~="underline"] { text-decoration: underline; }
 .cgrid [data-gr~="highlight"] { font-synthesis: weight; font-weight: 400; }
+
+/******************************************************************************
+ * OIA line
+ ******************************************************************************/
+
+#app .oia {
+  background: oklch(0.2 0 0);
+  border-top: 1px solid oklch($lightnessMain $chroma 240deg);
+  color: oklch($lightnessMain $chroma 240deg);
+  width: 100%;
+  height: 1lh;
+  white-space: pre;
+  display: flex;
+}
+#app .oia span {
+  /*box-shadow: inset 0px 0px 0 1px darkgreen;*/
+  min-width: 1ex;
+  text-align: left;
+}
+#app .oia .undera {
+  margin-left: 1ex;
+}
+#app .oia .time {
+  margin-left: 1ex;
+  text-align: right;
+  width: 7ex;
+}
+
+#app .oia .lu {
+  width: 10ex;
+  margin-left: 1ex;
+}
+
+#app .oia .compose {
+  width: 10ex;
+  margin-left: 1ex;
+  margin-right: 1ex;
+}
+#app .oia .posn {
+  width: 7ex;
+  margin-right: 1ex;
+  margin-left: 1ex;
+}
+
+#app .oia .status {
+  margin-left: 1ex;
+  flex-grow: 1;
+}
+
+#app .oia .undera {
+
+}
