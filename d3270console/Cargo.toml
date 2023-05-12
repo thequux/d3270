@@ -1,0 +1,15 @@
+[package]
+name = "d3270console"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.28.1", features = ["full"] }
+crossterm = { version = "0.26.1", features = ["event-stream"] }
+d3270-common = {path = "../d3270-common"}
+serde_json = "1.0.96"
+structopt = "0.3.26"
+anyhow = "1.0.71"
+futures = "0.3.28"
