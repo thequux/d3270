@@ -723,6 +723,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tide",
+ "tide-tracing",
  "tide-websockets",
  "tokio",
  "tokio-stream",
@@ -2064,6 +2065,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tide-tracing"
+version = "0.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "500f567f8c4d65210e6a7c9978661cc7ad6be1dc97e32c3e88bf8f0f0599c23d"
+dependencies = [
+ "async-trait",
+ "tide",
+ "tracing",
+ "tracing-futures",
+]
+
+[[package]]
 name = "tide-websockets"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2240,6 +2253,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "880547feb88739526e322a366be2411c41c797f0dabcddfe99a3216e5a664f71"
 dependencies = [
  "tracing-subscriber 0.1.6",
+]
+
+[[package]]
+name = "tracing-futures"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
+dependencies = [
+ "pin-project",
+ "tracing",
 ]
 
 [[package]]

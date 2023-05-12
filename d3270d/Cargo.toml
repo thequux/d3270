@@ -12,6 +12,7 @@ anyhow = "1.0.71"
 tokio = { version = "1.28.0", features = ["full"] }
 tide = "0.16.0"
 tide-websockets = "0.4.0"
+tide-tracing = "0.0.12"
 d3270-common = {path = "../d3270-common"}
 bytes = "1.4.0"
 tracing = "0.1.37"

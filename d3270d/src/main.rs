@@ -18,6 +18,7 @@ use d3270_common::b3270::operation::Action;
 pub mod arbiter;
 pub mod gen_connection;
 pub mod tcp_server;
+pub mod ws_server;
 
 struct TaggedJoinHandle {
     handle: JoinHandle<anyhow::Error>,
@@ -65,6 +66,7 @@ async fn main() -> anyhow::Result<()> {
     let mut args_iter = std::env::args_os().peekable();
     let mut connect_str = None;
     let mut tcp_listen = None;
+    let mut http_listen = None;
 
     args_iter.next(); // skip program name.
 
@@ -94,7 +96,17 @@ async fn main() -> anyhow::Result<()> {
                     .map_err(|_| anyhow!("Failed to parse tcp-listen address"))?
                     .parse()
                     .map(Some)
-                    .map_err(|_| anyhow!("Invalid listen address"))?;
+                    .map_err(|_| anyhow!("Failed to parse tcp-listen address"))?;
+            }
+            "-http-listen" => {
+                http_listen = args_iter
+                    .next()
+                    .ok_or_else(|| anyhow!("Arg required for -http-listen"))?
+                    .into_string()
+                    .map_err(|_| anyhow!("Failed to parse http-listen address"))?
+                    .parse()
+                    .map(Some)
+                    .map_err(|_| anyhow!("Failed to parse http-listen address"))?;
             }
             "-e" => {
                 'skip: while let Some(arg) = args_iter.peek() {
@@ -130,6 +142,10 @@ async fn main() -> anyhow::Result<()> {
     if let Some(addr) = tcp_listen {
         let tcp_listener = tcp_server::listener_proc(addr, arbiter_req.clone()).await?;
         handles.push(tcp_listener.tagged("tcp_listener"));
+    }
+    if let Some(addr) = http_listen {
+        let ws_listener = ws_server::start_ws_server(addr, arbiter_req.clone()).await?;
+        handles.push(ws_listener.tagged("ws_server"));
     }
     let ((source, error), _, _) = select_all(handles).await;
     error!(source, %error, "A core task failed");
